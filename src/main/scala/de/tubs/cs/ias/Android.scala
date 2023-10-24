@@ -24,7 +24,7 @@ object Android extends LogSupport {
       .addSubparser(Parser("apps", "download a given list of apps")
         .addSubparser(Parser("manual", "manually specify download parameter")
           .addPositional("folder", "the folder into which to download")
-          .addPositional("list", "if a file then it is assume dto be a chart list otherwise it is assume dto be a csv")
+          .addPositional("list", "if a file then it is assumed to be a chart list otherwise it is assumed to be a csv")
           .addDefault[(ParsingResult, Config) => Unit]("func", this.downloadAppsManual))
           .addSubparser(Parser("manual-via-txt", "manually specify download parameter")
             .addPositional("folder", "the folder into which to download")

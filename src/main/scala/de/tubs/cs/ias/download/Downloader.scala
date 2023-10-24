@@ -1,10 +1,9 @@
 package de.tubs.cs.ias.download
 
 import de.halcony.argparse.{OptionalValue, Parser, ParsingResult}
-import de.tubs.cs.ias.applist.{AppListAction, MobileApp}
+import de.tubs.cs.ias.applist.{AppListAction, AppListParser, MobileApp}
 import de.tubs.cs.ias.util.Config
 import wvlet.log.LogSupport
-
 import java.io.File
 import scala.collection.mutable.ListBuffer
 import scala.sys.process.{ProcessLogger, _}
@@ -91,7 +90,7 @@ object Downloader extends LogSupport {
       .listFiles()
       .filter(_.isFile)
       .filter(_.getName.endsWith(".json"))
-      .map(file => AppListAction.readInAppList(file.getPath))
+      .map(file => AppListParser.read(file.getPath))
       .flatMap(_.apps)
       .toList
   }

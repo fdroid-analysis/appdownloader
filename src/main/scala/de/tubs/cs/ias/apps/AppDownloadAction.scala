@@ -3,8 +3,10 @@ package de.tubs.cs.ias.apps
 import de.tubs.cs.ias.OperatingSystems.OperatingSystem
 import de.tubs.cs.ias.apps.android.{AppDownloader => AndroidAppDownloader}
 import de.tubs.cs.ias.apps.ios.{AppDownloader => IosAppDownloader}
+import de.tubs.cs.ias.apps.fdroid.{AppDownloader => FDroidAppDownloader}
 import de.tubs.cs.ias.util.{ActionReport, AsciiProgressBar, Config}
 import wvlet.log.LogSupport
+
 import java.io.File
 import scala.collection.mutable.{Map => MMap}
 
@@ -45,6 +47,18 @@ object AppDownloadAction extends LogSupport {
                     error(id -> value)
                     failures.addOne(id -> value)
                   case None =>
+                }
+              }
+            case de.tubs.cs.ias.OperatingSystems.FDROID =>
+              if (!new File(s"$folder/$id.apk").exists()) {
+                FDroidAppDownloader.downloadApk(
+                  id,
+                  folder,
+                  conf.fdroid.fdroidcl) match {
+                  case x: FDroidAppDownloader.Panic =>
+                    error(s"$id -> ${x.getMessage}")
+                    failures.addOne(id -> x.getMessage)
+                  case FDroidAppDownloader.Success =>
                 }
               }
           }

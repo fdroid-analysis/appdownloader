@@ -1,6 +1,7 @@
 package de.tubs.cs.ias.applist.ios
 
 import de.tubs.cs.ias.applist.AppListParser.appListFormat
+import de.tubs.cs.ias.applist.MobileAppList
 import scalaj.http.Http
 import wvlet.log.LogSupport
 import de.tubs.cs.ias.applist.ios.AppListParser.{
@@ -26,27 +27,32 @@ object AppListDownloader extends LogSupport {
     * @param language the language of the apps
     * @param popId the type of chart
     */
-  def download(genreId: String,
-               cc: String = "de",
-               language: String = "de",
-               popId: String = "27",
-               headerCountry: String = HEADER_COUNTRY,
-               headerLanguage: String = HEADER_LANGUAGE,
-               headerPlatform: String = HEADER_PLATFORM): String = {
+  def download(
+      genreId: String,
+      cc: String = "de",
+      language: String = "de",
+      popId: String = "27",
+      headerCountry: String = HEADER_COUNTRY,
+      headerLanguage: String = HEADER_LANGUAGE,
+      headerPlatform: String = HEADER_PLATFORM
+  ): MobileAppList = {
     val result = Http(CHART_LIST_URL)
-      .header("X-Apple-Store-Front",
-              s"$headerCountry-$headerLanguage,$headerPlatform")
+      .header(
+        "X-Apple-Store-Front",
+        s"$headerCountry-$headerLanguage,$headerPlatform"
+      )
       .params(
         Map(
           "popId" -> popId,
           "genreId" -> genreId
-        ))
+        )
+      )
       .asString
     if (result.code != 200) {
       error(s"request returned ${result.code} when downloading genre $genreId")
-      ""
+      MobileAppList(List(), "error")
     } else {
-      iosReadInDownloadedAppList(JsonParser(result.body)).toJson.prettyPrint
+      iosReadInDownloadedAppList(JsonParser(result.body))
     }
   }
 

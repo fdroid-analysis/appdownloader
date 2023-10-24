@@ -1,12 +1,11 @@
 package de.tubs.cs.ias
 
 import de.halcony.argparse.{Parser, ParsingException, ParsingResult}
-import de.tubs.cs.ias.applist.{AppListAction, MobileAppList}
+import de.tubs.cs.ias.applist.{AppListAction, AppListParser, MobileAppList}
 import de.tubs.cs.ias.download.Downloader
 import de.tubs.cs.ias.util.{Config, FileSystemInteraction => fsi}
 import wvlet.log.LogFormatter.PlainSourceCodeLogFormatter
 import wvlet.log.{FileHandler, LogSupport}
-
 import java.io.File
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -23,6 +22,7 @@ object Apmi extends LogSupport {
                    "the config file used for running")
       .addSubparser(iOS.parser)
       .addSubparser(Android.parser)
+      .addSubparser(FDroid.parser)
       .addSubparser(Downloader.parser)
       .addSubparser(
         Parser("sentinel", "perform a sanity check on a given download folder")
@@ -147,7 +147,7 @@ object Apmi extends LogSupport {
         .map { timeFolder =>
           val expectedListPath = timeFolder + s"/lists/$chartName.json"
           if (fsi.fileExists(expectedListPath)) {
-            AppListAction.readInAppList(expectedListPath)
+            AppListParser.read(expectedListPath)
           } else {
             warn(s"we did not collect $chartName list in $timeFolder")
             MobileAppList(List(), "N/A")
@@ -189,7 +189,7 @@ object Apmi extends LogSupport {
   def getTargetAppIdsFromPargs(list: String): List[String] = {
     if (new File(list).exists()) {
       info("using given chart list file")
-      AppListAction.readInAppList(list).apps.map(elem => elem.bundleId).distinct
+      AppListParser.read(list).apps.map(elem => elem.bundleId).distinct
     } else {
       info("using given csv values")
       list.split(",").toList

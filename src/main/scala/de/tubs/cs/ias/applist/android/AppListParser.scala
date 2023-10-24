@@ -1,6 +1,6 @@
 package de.tubs.cs.ias.applist.android
 
-import de.tubs.cs.ias.applist.{MobileApp, MobileAppList}
+import de.tubs.cs.ias.applist.{AppListAction, MobileApp, MobileAppList}
 import spray.json.{JsArray, JsNull, JsNumber, JsString, JsValue, JsonParser}
 
 object AppListParser {
@@ -67,11 +67,9 @@ object AppListParser {
         counter = counter + 1
         readInTopChartEntry(elem, counter)
     }
-    val category: Set[String] =
-      apps.map(_.category).map(elem => elem -> elem).toList.toMap.keySet
     MobileAppList(
       apps.toList,
-      if (category.size != 1) "MIXED" else category.head
+      AppListAction.appListCategoryName(apps)
     )
   }
 

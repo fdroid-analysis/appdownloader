@@ -8,6 +8,8 @@ object Config extends DefaultJsonProtocol {
   implicit val appCategoryFormat: RootJsonFormat[AppCategory] = jsonFormat2(
     AppCategory)
 
+  implicit val appPermissionFormat: RootJsonFormat[AppPermission] = jsonFormat1(AppPermission)
+
   implicit val loginConfigFormat: RootJsonFormat[LoginConfig] = jsonFormat3(
     LoginConfig)
 
@@ -20,7 +22,10 @@ object Config extends DefaultJsonProtocol {
   implicit val androidConfigFormat: RootJsonFormat[AndroidConfig] =
     jsonFormat4(AndroidConfig)
 
-  implicit val configFormat: RootJsonFormat[Config] = jsonFormat6(Config.apply)
+  implicit val fdroidConfigFormat: RootJsonFormat[FDroidConfig] =
+    jsonFormat4(FDroidConfig)
+
+  implicit val configFormat: RootJsonFormat[Config] = jsonFormat7(Config.apply)
 
   def read(path: String): Config = {
     fsi.readInTextFile(path).parseJson.convertTo[Config]
@@ -29,6 +34,8 @@ object Config extends DefaultJsonProtocol {
 }
 
 case class AppCategory(name: String, id: String)
+
+case class AppPermission(name: String)
 
 case class LoginConfig(email: String, password: String, twoFA: String)
 
@@ -44,8 +51,14 @@ case class AndroidConfig(categories: List[AppCategory],
                          osFolderName: String,
                          googleplay: String)
 
+case class FDroidConfig(categories: List[AppCategory],
+                        permissions: List[AppPermission],
+                        osFolderName: String,
+                        fdroidcl: String)
+
 case class Config(ios: iOSConfig,
                   android: AndroidConfig,
+                  fdroid: FDroidConfig,
                   telegram: TelegramConfig,
                   maxAmountApps: Int,
                   downloadFolderRoot: String,
