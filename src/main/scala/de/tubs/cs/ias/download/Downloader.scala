@@ -10,62 +10,45 @@ import scala.sys.process.{ProcessLogger, _}
 
 object Downloader extends LogSupport {
 
-  val parser: Parser = Parser("download",
-                              "download apps,labels,files acquired via appimo")
-    .addPositional("destination",
-                   "the base folder where to put the downloaded stuff")
+  val parser: Parser = Parser(
+    "download",
+    "download apps,labels,files acquired via appimo"
+  )
+    .addPositional(
+      "destination",
+      "the base folder where to put the downloaded stuff"
+    )
     .addPositional("os", "the operating system for which to download the data")
     .addPositional("date", "the date of interest")
-    .addSubparser(Parser("lists", "download the configured lists")
-      .addDefault[(ParsingResult, Config) => Unit]("func", downloadLists))
+    .addSubparser(
+      Parser("lists", "download the configured lists")
+        .addDefault[(ParsingResult, Config) => Unit]("func", downloadLists)
+    )
     .addSubparser(
       Parser("apps", "download apps of relevance")
-        .addOptional("types",
-                     "t",
-                     "category-types",
-                     None,
-                     "which categories to download")
+        .addOptional(
+          "types",
+          "t",
+          "category-types",
+          None,
+          "which categories to download"
+        )
         .addOptional(
           "rank",
           "r",
           "rank",
           None,
-          "what the minimum rank to download is (only apps and labels)")
-        .addDefault[(ParsingResult, Config) => Unit]("func", downloadApps))
-
-  private def scp(server: String,
-                  source: String,
-                  dest: String): (Boolean, String) = {
-    val cmd = s"scp $server:$source $dest"
-    try {
-      val stderr = new ListBuffer[String]()
-      val ret = cmd ! ProcessLogger(_ => (), line => stderr.append(line))
-      if (ret == 0 && stderr.isEmpty) {
-        (true, "")
-      } else {
-        (false, stderr.mkString("\n"))
-      }
-    } catch {
-      case x: Throwable =>
-        (false, x.getMessage)
-    }
-  }
-
-  private def parseDate(date: String): String = {
-    if (date.contains("-")) {
-      assert(date.length == 10)
-      s"${date.slice(0, 4)}${date.slice(5, 7)}${date.slice(8, 10)}"
-    } else {
-      assert(date.length == 8)
-      date
-    }
-  }
+          "what the minimum rank to download is (only apps and labels)"
+        )
+        .addDefault[(ParsingResult, Config) => Unit]("func", downloadApps)
+    )
 
   def downloadLists(pargs: ParsingResult, conf: Config): Unit = {
     val downloaderConfig = DownloaderConfig(conf.downloaderConfig)
     val date = parseDate(pargs.getValue[String]("date"))
     val destination = new File(
-      pargs.getValue[String]("destination") + "/lists/")
+      pargs.getValue[String]("destination") + "/lists/"
+    )
     if (destination.exists()) {
       assert(destination.isDirectory)
     } else {
@@ -76,23 +59,17 @@ object Downloader extends LogSupport {
       case "ios"     => downloaderConfig.remoteIos
     }
     info(
-      s"downloading all lists via scp ${downloaderConfig.sshString}:$folder/$date/lists/* into ${destination.getAbsolutePath}/")
-    scp(downloaderConfig.sshString,
-        s"$folder/$date/lists/*",
-        destination.getAbsolutePath + "/") match {
+      s"downloading all lists via scp ${downloaderConfig.sshString}:$folder/$date/lists/* into ${destination
+        .getAbsolutePath}/"
+    )
+    scp(
+      downloaderConfig.sshString,
+      s"$folder/$date/lists/*",
+      destination.getAbsolutePath + "/"
+    ) match {
       case (true, _)    => info("success")
       case (false, msg) => error(msg)
     }
-  }
-
-  private def readInAvailableApps(file: String): List[MobileApp] = {
-    new File(file + "/lists/")
-      .listFiles()
-      .filter(_.isFile)
-      .filter(_.getName.endsWith(".json"))
-      .map(file => AppListParser.read(file.getPath))
-      .flatMap(_.apps)
-      .toList
   }
 
   def downloadApps(pargs: ParsingResult, conf: Config): Unit = {
@@ -122,13 +99,17 @@ object Downloader extends LogSupport {
     var succ = 0
     var want = 0
     apps.foreach { app =>
-      if ((categories.isEmpty || categories.contains(app.category)) &&
-          (minRank.isEmpty || minRank.get >= app.rank)) {
+      if (
+        (categories.isEmpty || categories.contains(app.category)) &&
+        (minRank.isEmpty || minRank.get >= app.rank)
+      ) {
         want = want + 1
         val (sourceFile, destFile) = pargs.getValue[String]("os") match {
           case "android" =>
-            (folder + app.bundleId + "*.apk",
-             s"$destination/apps/${app.bundleId}.apk")
+            (
+              folder + app.bundleId + "*.apk",
+              s"$destination/apps/${app.bundleId}.apk"
+            )
           case "ios" =>
             (app.bundleId + ".ipa", s"$destination/apps/${app.bundleId}.ipa")
         }
@@ -148,6 +129,46 @@ object Downloader extends LogSupport {
       }
     }
     info(s"we were able to acquire $succ/$want apps")
+  }
+
+  private def scp(
+      server: String,
+      source: String,
+      dest: String
+  ): (Boolean, String) = {
+    val cmd = s"scp $server:$source $dest"
+    try {
+      val stderr = new ListBuffer[String]()
+      val ret = cmd ! ProcessLogger(_ => (), line => stderr.append(line))
+      if (ret == 0 && stderr.isEmpty) {
+        (true, "")
+      } else {
+        (false, stderr.mkString("\n"))
+      }
+    } catch {
+      case x: Throwable =>
+        (false, x.getMessage)
+    }
+  }
+
+  private def parseDate(date: String): String = {
+    if (date.contains("-")) {
+      assert(date.length == 10)
+      s"${date.slice(0, 4)}${date.slice(5, 7)}${date.slice(8, 10)}"
+    } else {
+      assert(date.length == 8)
+      date
+    }
+  }
+
+  private def readInAvailableApps(file: String): List[MobileApp] = {
+    new File(file + "/lists/")
+      .listFiles()
+      .filter(_.isFile)
+      .filter(_.getName.endsWith(".json"))
+      .map(file => AppListParser.read(file.getPath))
+      .flatMap(_.apps)
+      .toList
   }
 
 }

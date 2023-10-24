@@ -23,7 +23,7 @@ object Config extends DefaultJsonProtocol {
     jsonFormat4(AndroidConfig)
 
   implicit val fdroidConfigFormat: RootJsonFormat[FDroidConfig] =
-    jsonFormat4(FDroidConfig)
+    jsonFormat6(FDroidConfig)
 
   implicit val configFormat: RootJsonFormat[Config] = jsonFormat7(Config.apply)
 
@@ -54,7 +54,9 @@ case class AndroidConfig(categories: List[AppCategory],
 case class FDroidConfig(categories: List[AppCategory],
                         permissions: List[AppPermission],
                         osFolderName: String,
-                        fdroidcl: String)
+                        fdroidcl: String,
+                        apiLevel: Int,
+                        abiList: List[String])
 
 case class Config(ios: iOSConfig,
                   android: AndroidConfig,

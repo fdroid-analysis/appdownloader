@@ -10,7 +10,8 @@ case class MobileApp(
     bundleId: String,
     category: String,
     rank: Int,
-    price: String
+    price: String,
+    version: String = ""
 )
 
 case class MobileAppList(apps: List[MobileApp], name: String)
