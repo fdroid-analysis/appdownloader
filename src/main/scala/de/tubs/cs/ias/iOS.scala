@@ -6,7 +6,7 @@ import de.tubs.cs.ias.Apmi.{
   getCurrentAppChartState,
   getTargetAppIdsFromPargs
 }
-import de.tubs.cs.ias.OperatingSystems.IOS
+import de.tubs.cs.ias.OperatingSystem.IOS
 import de.tubs.cs.ias.applist.{AppListAction, MobileApp, MobileAppList}
 import de.tubs.cs.ias.apps.AppDownloadAction
 import de.tubs.cs.ias.labels.LabelAction

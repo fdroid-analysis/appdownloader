@@ -1,5 +1,6 @@
 package de.tubs.cs.ias.labels.android
 
+import de.tubs.cs.ias.labels.LabelDownloader
 import de.tubs.cs.ias.util.googlebatch.GoogleBatchPayload
 import dispatch.Defaults._
 import dispatch._
@@ -9,7 +10,7 @@ import java.nio.charset.StandardCharsets
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration.Inf
 
-object LabelDownloader {
+object LabelDownloader extends LabelDownloader {
 
   val GOOGLE_BATCH_EXECUTE =
     "https://play.google.com/_/PlayStoreUi/data/batchexecute"

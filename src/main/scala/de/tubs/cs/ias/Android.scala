@@ -6,7 +6,7 @@ import de.tubs.cs.ias.Apmi.{
   getCurrentAppChartState,
   getTargetAppIdsFromPargs
 }
-import de.tubs.cs.ias.OperatingSystems.ANDROID
+import de.tubs.cs.ias.OperatingSystem.ANDROID
 import de.tubs.cs.ias.applist.{AppListAction, MobileApp, MobileAppList}
 import de.tubs.cs.ias.apps.AppDownloadAction
 import de.tubs.cs.ias.apps.android.AppDownloader
@@ -157,8 +157,7 @@ object Android extends LogSupport {
       @nowarn conf: Config
   ): Unit = {
     info("starting manual label acquisition")
-    val targetFolder =
-      fsi.ensureFolderExists(pargs.getValue[String]("folder") + "/")
+    val targetFolder = fsi.ensureFolderExists(pargs.getValue[String]("folder") + "/")
     val labelIds = getTargetAppIdsFromPargs(pargs.getValue[String]("list"))
     LabelAction.download(labelIds, targetFolder, ANDROID)
   }

@@ -36,6 +36,15 @@ object FileSystemInteraction {
     }
   }
 
+  def appendToFile(contents: String, path: String): Unit = {
+    val fw = new FileWriter(new File(path), true)
+    try {
+      fw.write(contents)
+    } finally {
+      fw.close()
+    }
+  }
+
   def moveFile(from: String, to: String): Unit = {
     s"mv $from $to".!!
   }

@@ -1,14 +1,15 @@
 package de.tubs.cs.ias
 
 import de.halcony.argparse.{Parser, ParsingResult}
-import de.tubs.cs.ias.OperatingSystems.FDROID
 import de.tubs.cs.ias.Apmi.ensureFolderStructure
-import de.tubs.cs.ias.applist.fdroid.{AppListParser => FDroidListParser}
+import de.tubs.cs.ias.OperatingSystem.FDROID
 import de.tubs.cs.ias.applist.fdroid.AppListParser.{
   Device,
   appCompatibleReason,
   getAppVersion
 }
+import de.tubs.cs.ias.applist.fdroid.FDroidJsonProtocol.IndexFormat
+import de.tubs.cs.ias.applist.fdroid.{Index, AppListParser => FDroidListParser}
 import de.tubs.cs.ias.applist.{
   AppListAction,
   AppListParser,
@@ -16,16 +17,19 @@ import de.tubs.cs.ias.applist.{
   MobileAppList
 }
 import de.tubs.cs.ias.apps.AppDownloadAction
+import de.tubs.cs.ias.apps.android.{GooglePlayClient, X86}
 import de.tubs.cs.ias.apps.fdroid.AppDownloader
 import de.tubs.cs.ias.util.ActionReportJsonWriter.actionReportCollection
 import de.tubs.cs.ias.util.{
   ActionReport,
   ActionReportCollection,
+  AsciiProgressBar,
   Config,
   FileSystemInteraction => fsi
 }
-import scala.util.Success
-import spray.json.enrichAny
+import scala.collection.mutable.HashMap
+import scala.util.Random
+import spray.json.{JsArray, JsObject, JsString, JsonParser, enrichAny}
 import wvlet.log.LogSupport
 
 object FDroid extends LogSupport {
@@ -61,7 +65,25 @@ object FDroid extends LogSupport {
                 )
             )
         )
-        .addSubparser(Parser("labels", "download a given list of labels"))
+        .addSubparser(
+          Parser("labels", "download a given list of labels")
+            .addPositional(
+              "outFolder",
+              "output directory to store the privacy labels in"
+            )
+            .addPositional(
+              "list",
+              "mobile app list to download privacy labels for"
+            )
+            .addPositional(
+              "indexFolder",
+              "directory that contains the repo-v2.json and archive-v2.json to use for generating privacy labels"
+            )
+            .addDefault[(ParsingResult, Config) => Unit](
+              "func",
+              this.downloadPrivacyLabelsMain
+            )
+        )
     )
     .addSubparser(
       Parser("verify", "sanity checks to verify everything is as it should be")
@@ -115,6 +137,17 @@ object FDroid extends LogSupport {
             .addPositional("list2", "the second list")
             .addDefault[(ParsingResult, Config) => Unit]("func", this.listDiff)
         )
+        .addSubparser(
+          Parser(
+            "availableOnPlay",
+            "searches the Google Play-Store if apps from a list are available"
+          )
+            .addPositional("list", "the mobile app list")
+            .addDefault[(ParsingResult, Config) => Unit](
+              "func",
+              this.availableOnPlay
+            )
+        )
     )
 
   def downloadAppsMain(pargs: ParsingResult, conf: Config): Unit = {
@@ -129,18 +162,13 @@ object FDroid extends LogSupport {
       val appsReport: ActionReport = this.downloadAppsAutomatedMain(pargs, conf)
       fsi.writeFile(
         ActionReportCollection(
-          Map(
-            "lists" -> listReport,
-            "apps" -> appsReport
-          )
+          Map("lists" -> listReport, "apps" -> appsReport)
         ).toJson.prettyPrint,
         s"$baseFolder/run.json"
       )
     } catch {
-      case e: Error =>
-        error(e.getMessage)
-      case e: Exception =>
-        error(e.getMessage)
+      case e: Error     => error(e.getMessage)
+      case e: Exception => error(e.getMessage)
     }
   }
 
@@ -152,9 +180,10 @@ object FDroid extends LogSupport {
       conf.downloadFolderRoot + conf.fdroid.osFolderName + "/",
       pargs.getValue[Boolean]("continue")
     )
-    info("starting chart list acquisition")
+    info("starting app list acquisition")
     val (appLists, report): (Map[String, MobileAppList], ActionReport) =
-      AppListAction.download(FDROID, conf.fdroid.categories, listsFolder)
+      AppListAction
+        .download(FDROID, conf.fdroid.categories, listsFolder)
     appLists.foreach { case (category, list) =>
       info(s"category $category contains ${list.apps.length}")
     }
@@ -174,15 +203,15 @@ object FDroid extends LogSupport {
       pargs.getValue[Boolean]("continue")
     )
     info("starting automated app acquisition")
-    val baseFolder = conf.downloadFolderRoot + conf.fdroid.osFolderName + "/20231012"
+    val baseFolder =
+      conf.downloadFolderRoot + conf.fdroid.osFolderName + "/20231012"
     val charts = conf.fdroid.categories.map(_.name)
     // val currentAppChartList = Apmi.getCurrentAppChartState(
     //   charts,
     //   conf.downloadFolderRoot + conf.fdroid.osFolderName + "/"
     // )
     // val allApps = currentAppChartList.flatMap(_._2.apps).toList
-    val allApps =
-      AppListParser.read(s"$baseFolder/lists/All.json").apps
+    val allApps = AppListParser.read(s"$baseFolder/lists/All.json").apps
     info(s"we have ${allApps.length} apps to download")
     val realAppsFolder = s"$baseFolder/apps"
     val remainingApps = getRemainingApps(allApps, realAppsFolder)
@@ -219,6 +248,50 @@ object FDroid extends LogSupport {
     } else {
       allApps
     }
+  }
+
+  def downloadPrivacyLabelsMain(
+      pargs: ParsingResult,
+      conf: Config
+  ): ActionReport = {
+    val outFolder = pargs.getValue[String]("outFolder")
+    fsi.ensureFolderExists(outFolder + "/")
+    val indexFolder = pargs.getValue[String]("indexFolder")
+    val repoIndex = JsonParser(fsi.readInTextFile(s"$indexFolder/repo-v2.json"))
+      .convertTo[Index]
+    val archiveIndex = JsonParser(
+      fsi.readInTextFile(s"$indexFolder/archive-v2.json")
+    ).convertTo[Index]
+    val list = AppListParser.read(pargs.getValue[String]("list"))
+    val versionNotFound = new HashMap[String, String]
+    val bar =
+      AsciiProgressBar.create("Generating privacy labels", list.apps.size)
+    list.apps.foreach { app =>
+      var appVersion = getAppVersion(app.bundleId, app.version.toInt, repoIndex)
+      if (appVersion.isEmpty) {
+        appVersion =
+          getAppVersion(app.bundleId, app.version.toInt, archiveIndex)
+      }
+      appVersion match {
+        case Some(appVersion) =>
+          val antiFeatures = appVersion.antiFeatures match {
+            case Some(antiFeatures) =>
+              antiFeatures.keySet.map(JsString.apply).toVector
+            case None => Vector()
+          }
+          val json = JsObject(("antiFeatures", JsArray(antiFeatures)))
+          fsi.writeFile(json.prettyPrint, s"$outFolder/${app.bundleId}.json")
+        case None =>
+          versionNotFound.put(
+            app.bundleId,
+            "version not found in repo or archive index"
+          )
+      }
+      bar.step()
+    }
+    bar.close()
+    val numSuccesses = list.apps.size - versionNotFound.size
+    ActionReport(numSuccesses, versionNotFound.size, versionNotFound.toMap)
   }
 
   def verifyDownload(pargs: ParsingResult, conf: Config): ActionReport = {
@@ -313,10 +386,10 @@ object FDroid extends LogSupport {
     val compatible = compatability.filter { idCompatible =>
       idCompatible._2.isSuccess
     }
-    val incompatible = compatability
-      .filter { idCompatible => idCompatible._2.isFailure }
-      .map { idCompatible =>
-        idCompatible._1 -> idCompatible._2.failed.get.getMessage
+    val incompatible =
+      compatability.filter { idCompatible => idCompatible._2.isFailure }.map {
+        idCompatible =>
+          idCompatible._1 -> idCompatible._2.failed.get.getMessage
       }
     info(
       s"there are ${compatible.size} apps on the list compatible with the device"
@@ -343,6 +416,50 @@ object FDroid extends LogSupport {
       app.bundleId -> app.toString
     }.toMap ++ diff21.map { app => app.bundleId -> app.toString }.toMap
     ActionReport(intersect.size, diff12.size + diff21.size, fails)
+  }
+
+  def availableOnPlay(pargs: ParsingResult, conf: Config): ActionReport = {
+    val fdroidList: MobileAppList =
+      AppListParser.read(pargs.getValue[String]("list"))
+    val play = new GooglePlayClient(conf.android.googleplay)
+    val bar = AsciiProgressBar.create(
+      "search apps on Google Play",
+      fdroidList.apps.size
+    )
+    val appInfos = fdroidList.apps.map { app =>
+      var appId = app.bundleId
+      var playResponse = play.getAppInfo(appId, X86)
+      Thread.sleep(Random.nextLong(GooglePlayClient.DELAY_TIME_MAX))
+      val bundleScopes = app.bundleId.split('.')
+      if (bundleScopes.last.toLowerCase.contains('o') && playResponse.isRight) {
+        appId = bundleScopes.dropRight(1).mkString(".")
+        playResponse = play.getAppInfo(appId, X86)
+      }
+      bar.step()
+      playResponse match {
+        case Left(appInfo) =>
+          Some(
+            MobileApp(
+              appInfo.name,
+              appId,
+              "",
+              0,
+              appInfo.price.toString,
+              appInfo.version.code.toString
+            )
+          )
+        case Right(_) => None
+      }
+    }
+    bar.close()
+    val appsAvailable = appInfos.filter(_.nonEmpty).map(_.get)
+    val numFailures = fdroidList.apps.size - appsAvailable.size
+    appsAvailable.foreach(app => println(s"${app.bundleId}: ${app.price}"))
+    val totalPrice = appsAvailable.map(_.price.toDouble).sum
+    println(s"total price: $totalPrice €")
+    val playList = MobileAppList(appsAvailable, fdroidList.name + "Play")
+    AppListParser.write(playList, "./availableOnGPlay.json")
+    ActionReport(appsAvailable.size, numFailures, Map())
   }
 
 }

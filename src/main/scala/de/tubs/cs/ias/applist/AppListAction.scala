@@ -1,6 +1,6 @@
 package de.tubs.cs.ias.applist
 
-import de.tubs.cs.ias.OperatingSystems.{ANDROID, FDROID, IOS, OperatingSystem}
+import de.tubs.cs.ias.OperatingSystem.{ANDROID, FDROID, IOS, OperatingSystem}
 import de.tubs.cs.ias.applist.ios.AppListDownloader.{
   download => iosAppListDownload
 }

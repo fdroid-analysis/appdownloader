@@ -1,69 +1,17 @@
 package de.tubs.cs.ias.apps.android
 
 import de.tubs.cs.ias.util.AndroidConfig
-import wvlet.log.LogSupport
-
 import java.io.File
 import scala.annotation.tailrec
 import scala.collection.mutable.ListBuffer
 import scala.sys.process._
 import scala.util.Random
+import wvlet.log.LogSupport
 
 object AppDownloader extends LogSupport {
 
-  sealed trait GooglePlayResult
-
-  sealed trait Panic extends GooglePlayResult {
-    val msg: String
-    val context: String
-
-    def getMessage: String = s"{$context}" + msg.replace("panic:", "")
-  }
-
-  case class BadRequest(override val msg: String, override val context: String)
-      extends Panic
-
-  case class IncompatibleDevice(override val msg: String,
-                                override val context: String)
-      extends Panic
-
-  case class TooManyRequests(override val context: String) extends Panic {
-    override val msg: String = "too many requests"
-  }
-
-  case class PurchaseRequired(override val context: String) extends Panic {
-    override val msg = "purchase required"
-  }
-
-  case class UnknownPanic(override val msg: String,
-                          override val context: String)
-      extends Panic {
-    override def getMessage: String = "{UNKNOWN}" + super.getMessage
-  }
-
-  object Panic {
-
-    def getPanic(panicLines: ListBuffer[String], context: String): Panic = {
-      val lastLine = panicLines.filter(_.contains("panic:"))
-      if (lastLine.exists(_.contains("400 Bad Request"))) {
-        BadRequest(lastLine.mkString("\n"), context)
-      } else if (lastLine.exists(_.contains("your device isn't compatible"))) {
-        IncompatibleDevice(lastLine.mkString("\n"), context)
-      } else if (lastLine.exists(_.contains("purchase required"))) {
-        PurchaseRequired(context)
-      } else {
-        UnknownPanic(panicLines.mkString("\n"), context)
-      }
-    }
-
-  }
-
-  case class Result(value: String) extends GooglePlayResult
-
-  object Success extends GooglePlayResult
-
   val DEVICE_TYPE = 1 //this is armeabi-v7a and works on our GALAXY A13
-  val DELAY_TIME_MAX: Long = 10000
+  val DELAY_TIME_MAX: Long = 10_000
 
   /**
     * try to call the googleplay exec
@@ -74,26 +22,10 @@ object AppDownloader extends LogSupport {
     s"$googleplay".!!
 
   def getAppVersion(app: String, googleplay: String): GooglePlayResult = {
-    val lastLine: ListBuffer[String] = ListBuffer()
-    try {
-      val appInfo = s"$googleplay -p $DEVICE_TYPE -a $app"
-        .!!(ProcessLogger(_ => (), err => lastLine.append(err)))
-        .split("\n")
-      val panicLine = lastLine.filter(_.contains("panic"))
-      if (panicLine.isEmpty) {
-        if (appInfo.length == 9) {
-          Result(appInfo.apply(4).split(": ").apply(1))
-        } else {
-          UnknownPanic(
-            s"unexpected output line count:\n ${lastLine.mkString("\n")}",
-            "app version")
-        }
-      } else {
-        Panic.getPanic(panicLine, "app version")
-      }
-    } catch {
-      case _: Throwable =>
-        Panic.getPanic(lastLine, "app version")
+    val playCli = new GooglePlayClient(googleplay)
+    playCli.getAppInfo(app) match {
+      case Left(appInfo) => Result(appInfo.version.code.toString)
+      case Right(panic) => panic
     }
   }
 
@@ -152,14 +84,11 @@ object AppDownloader extends LogSupport {
                maxRetries: Int = 3): GooglePlayResult = {
     getAppVersion(app, config.googleplay) match {
       case x: Panic => x
-      case Success =>
-        throw new RuntimeException(
-          "getAppVersion must not return success object")
+      case Success => throw new RuntimeException("getAppVersion must not return success object")
       case Result(version) =>
         purchase(app, config.googleplay) match {
           case x: Panic => x
-          case Result(_) =>
-            throw new RuntimeException("purchase does not return a result")
+          case Result(_) => throw new RuntimeException("purchase does not return a result")
           case Success =>
             downloadApk(app, version, folder, config.googleplay) match {
               case x: BadRequest =>

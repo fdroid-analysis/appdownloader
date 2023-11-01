@@ -1,8 +1,8 @@
 package de.tubs.cs.ias.apps
 
-import de.tubs.cs.ias.OperatingSystems.OperatingSystem
+import de.tubs.cs.ias.OperatingSystem.OperatingSystem
 import de.tubs.cs.ias.applist.MobileApp
-import de.tubs.cs.ias.apps.android.{AppDownloader => AndroidAppDownloader}
+import de.tubs.cs.ias.apps.android.{Panic, Result, Success, AppDownloader => AndroidAppDownloader}
 import de.tubs.cs.ias.apps.ios.{AppDownloader => IosAppDownloader}
 import de.tubs.cs.ias.apps.fdroid.{AppDownloader => FDroidAppDownloader}
 import de.tubs.cs.ias.util.{ActionReport, AsciiProgressBar, Config}
@@ -18,29 +18,29 @@ object AppDownloadAction extends LogSupport {
       conf: Config,
       os: OperatingSystem
   ): ActionReport = {
-    val bar =
-      AsciiProgressBar.create("Downloading Apps  ", apps.length.toLong)
+    val bar = AsciiProgressBar.create("Downloading Apps  ", apps.length.toLong)
     val failures = MMap[String, String]()
     try {
       apps.foreach { app =>
         try {
           val id = app.bundleId
           os match {
-            case de.tubs.cs.ias.OperatingSystems.ANDROID =>
+            case de.tubs.cs.ias.OperatingSystem.ANDROID =>
               if (!new File(s"$folder/$id.apk").exists()) { // this check is currently pointless as the version is
                 // appended
                 AndroidAppDownloader.download(id, folder, conf.android) match {
-                  case x: AndroidAppDownloader.Panic =>
+                  case x:
+                    Panic =>
                     error(s"$id -> ${x.getMessage}")
                     failures.addOne(id -> x.getMessage)
-                  case AndroidAppDownloader.Result(_) =>
+                  case Result(_) =>
                     throw new RuntimeException(
                       "download does not return a result"
                     )
-                  case AndroidAppDownloader.Success =>
+                  case Success =>
                 }
               }
-            case de.tubs.cs.ias.OperatingSystems.IOS =>
+            case de.tubs.cs.ias.OperatingSystem.IOS =>
               if (!new File(s"$folder/$id.ipa").exists()) {
                 IosAppDownloader.downloadAppUsingIpatoolPy(
                   id,
@@ -54,7 +54,7 @@ object AppDownloadAction extends LogSupport {
                   case None =>
                 }
               }
-            case de.tubs.cs.ias.OperatingSystems.FDROID =>
+            case de.tubs.cs.ias.OperatingSystem.FDROID =>
               val version = if (app.version.toInt != 0) s"_${app.version}" else ""
               if (!new File(s"$folder/$id$version.apk").exists()) {
                 FDroidAppDownloader.downloadApk(

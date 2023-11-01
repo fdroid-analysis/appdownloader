@@ -1,19 +1,14 @@
 package de.tubs.cs.ias.labels.ios
 
-import de.tubs.cs.ias.labels.{BadTokenException, TooManyTriesException}
+import de.tubs.cs.ias.labels.{BadTokenException, LabelDownloader, TooManyTriesException}
 import scalaj.http.Http
 import wvlet.log.LogSupport
-
 import java.net.URI
 import java.net.http.HttpResponse.BodyHandlers
-import java.net.http.{
-  HttpClient => jClient,
-  HttpRequest => jRequest,
-  HttpResponse => jResponse
-}
+import java.net.http.{HttpClient => jClient, HttpRequest => jRequest, HttpResponse => jResponse}
 import scala.util.Random
 
-object LabelDownloader extends LogSupport {
+object LabelDownloader extends LabelDownloader with LogSupport {
 
   private var token = getToken
 
@@ -34,7 +29,9 @@ object LabelDownloader extends LogSupport {
     token
   }
 
-  final def getPrivacyLabel(appId: String, tries: Int = 4): String = {
+  override def getPrivacyLabel(appId: String): String = getPrivacyLabel(appId, 4)
+
+  final def getPrivacyLabel(appId: String, tries: Int): String = {
     try {
       if (tries == 0) {
         throw TooManyTriesException

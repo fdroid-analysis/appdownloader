@@ -1,6 +1,6 @@
 package de.tubs.cs.ias.applist.fdroid
 
-import spray.json.{DefaultJsonProtocol, RootJsonFormat}
+import spray.json.{DefaultJsonProtocol, JsValue, RootJsonFormat}
 
 object FDroidJsonProtocol extends DefaultJsonProtocol {
   implicit val AppMedataFormat: RootJsonFormat[AppMetadata] = {
@@ -24,7 +24,7 @@ object FDroidJsonProtocol extends DefaultJsonProtocol {
   }
 
   implicit val AppVersionFormat: RootJsonFormat[AppVersion] = {
-    jsonFormat2(AppVersion)
+    jsonFormat3(AppVersion)
   }
 
   implicit val AppVersionsFormat: RootJsonFormat[AppVersions] = {
@@ -70,7 +70,8 @@ case class AppFile(name: String,
                    sha256: String,
                    size: Int)
 case class AppVersion(file: AppFile,
-                      manifest: AppManifest)
+                      manifest: AppManifest,
+                      antiFeatures: Option[Map[String, JsValue]])
 
 case class AppVersions(versions: Map[String, AppVersion])
 case class AppPackage(metadata: AppMetadata,
