@@ -136,8 +136,7 @@ object Android extends LogSupport {
   ): ActionReport = {
     AppDownloader.readinessCheckGooglePlayTool(conf.android.googleplay)
     info("starting manual app acquisition")
-    val downloadFolder =
-      fsi.ensureFolderExists(pargs.getValue[String]("folder"))
+    val downloadFolder = fsi.ensureFolderExists(pargs.getValue[String]("folder"))
 
     val apps: List[MobileApp] = fsi
       .readInTextFile(pargs.getValue[String]("list"))

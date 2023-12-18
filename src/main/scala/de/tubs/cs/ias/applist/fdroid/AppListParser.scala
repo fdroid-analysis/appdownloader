@@ -12,50 +12,52 @@ import wvlet.log.LogSupport
 
 object AppListParser extends LogSupport {
 
-  private val folderPath = "/home/pc/ba/fdroid/20231012/lists/"
+  private val baseFolder = "/home/pc/ba/thirdparty"
+  private val repoName = "metatrans"
   private val internetPermission: AppPermission = AppPermission(
     "android.permission.INTERNET"
   )
 
   def main(args: Array[String]): Unit = {
-    // val index = readIndex(s"$folderPath/index-v2.json")
-    // val raw = FileSystemInteraction.readInTextFile(s"$folderPath/index-v2.json")
-    // val appList = readInRepoIndex(JsonParser(raw))
-    // fileSystemInteraction.writeFile(appList.toJson.prettyPrint, s"$folderPath/internet.json")
-    // val apps = filterApps(index, Device())
-    // val mobileApps = apps.map { app =>
-    //   {
-    //     val metadata = getAppMetadata(app._1, index)
-    //     MobileApp(
-    //       metadata.get.name("en-US"),
-    //       app._1,
-    //       metadata.get.categories.mkString(","),
-    //       0,
-    //       "free",
-    //       app._2.manifest.versionCode.toString
-    //     )
-    //   }
-    // }.toList
-    // val appList = MobileAppList(mobileApps, "MIXED")
-    // FileSystemInteraction.writeFile(appList.toJson.prettyPrint, s"$folderPath/filtered.json")
-    val deleted = FileSystemInteraction
-      .readInTextFile(s"$folderPath/wrongVersion.txt")
-      .split('\n')
-    val base = "/home/pc/ba/fdroid/20231012/apps/fdroidcl/apks"
-    deleted.foreach(line => {
-      val tokens = line.split(' ')
-      val id = tokens(0)
-      val wrongVersion = tokens(2).dropRight(1)
-
-      val path = s"$base/${id}_${wrongVersion}.apk"
-      val file = new File(path)
-      if (file.exists()) {
-        // file.delete()
-        println(s"delete $id")
-      } else {
-        println(s"$path not found")
-      }
-    })
+     val folderPath = s"$baseFolder/$repoName"
+     val index = readIndex(s"$folderPath/lists/index-v2.json")
+//     val raw = FileSystemInteraction.readInTextFile(s"$folderPath/index-v2.json")
+//     val appList = readInRepoIndex(JsonParser(raw))
+//     fileSystemInteraction.writeFile(appList.toJson.prettyPrint, s"$folderPath/internet.json")
+     val apps = filterApps(index, Device())
+     val mobileApps = apps.map { app =>
+       {
+         val metadata = getAppMetadata(app._1, index)
+         MobileApp(
+           metadata.get.name.getOrElse(Map(("en-US", "name not present")))("en-US"),
+           app._1,
+           metadata.get.categories.mkString(","),
+           0,
+           "free",
+           app._2.manifest.versionCode.toString
+         )
+       }
+     }.toList
+     val appList = MobileAppList(mobileApps, "MIXED")
+     // FileSystemInteraction.writeFile(appList.toJson.prettyPrint, s"$folderPath/lists/filtered.json")
+//    val deleted = FileSystemInteraction
+//      .readInTextFile(s"$folderPath/wrongVersion.txt")
+//      .split('\n')
+//    val base = "/home/pc/ba/fdroid/20231012/apps/fdroidcl/apks"
+//    deleted.foreach(line => {
+//      val tokens = line.split(' ')
+//      val id = tokens(0)
+//      val wrongVersion = tokens(2).dropRight(1)
+//
+//      val path = s"$base/${id}_${wrongVersion}.apk"
+//      val file = new File(path)
+//      if (file.exists()) {
+//        // file.delete()
+//        println(s"delete $id")
+//      } else {
+//        println(s"$path not found")
+//      }
+//    })
   }
 
   def readIndex(path: String): Index = {
@@ -144,8 +146,9 @@ object AppListParser extends LogSupport {
 
     val metadataField = appPackage.fields("metadata")
     val metadata = metadataField.convertTo[AppMetadata]
-    val name = metadata.name("en-US")
-    val category = metadata.categories.reduce[String] {
+    val name = metadata.name.getOrElse(Map(("en-US", "name not present")))("en-US")
+    val categories = metadata.categories.getOrElse(List(""))
+    val category = categories.reduce[String] {
       case (cat1: String, cat2: String) => s"$cat1,$cat2"
     }
 

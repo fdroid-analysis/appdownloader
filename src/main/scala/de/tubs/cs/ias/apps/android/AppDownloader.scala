@@ -10,31 +10,48 @@ import wvlet.log.LogSupport
 
 object AppDownloader extends LogSupport {
 
-  val DEVICE_TYPE = 1 //this is armeabi-v7a and works on our GALAXY A13
+  val DEVICE_TYPE = 0 //this is x86 and works on our GALAXY A13
   val DELAY_TIME_MAX: Long = 10_000
 
-  /**
-    * try to call the googleplay exec
+  /** try to call the googleplay exec
     *
     * @param googleplay path to the googleplay exec
     */
   def readinessCheckGooglePlayTool(googleplay: String): Unit =
     s"$googleplay".!!
 
-  def getAppVersion(app: String, googleplay: String): GooglePlayResult = {
+  def getAppVersion(
+      app: String,
+      googleplay: String
+  ): (GooglePlayResult, GooglePlayResult) = {
     val playCli = new GooglePlayClient(googleplay)
-    playCli.getAppInfo(app) match {
-      case Left(appInfo) => Result(appInfo.version.code.toString)
-      case Right(panic) => panic
+    var appVersionArchitecture = playCli.getAppInfo(app, X86) match {
+      case Left(appInfo) =>
+        (StringResult(appInfo.version.code.toString), ArchitectureResult(X86))
+      case Right(panic) => (panic, IncompatibleDevice(panic.msg, panic.context))
     }
+    // currently not supported as the google play tool does not create a corresponding .bin file for arm64
+    /*if (appVersionArchitecture._2 != ArchitectureResult(X86)) {
+      appVersionArchitecture = playCli.getAppInfo(app, Arm64) match {
+        case Left(appInfo) =>
+          (
+            StringResult(appInfo.version.code.toString),
+            ArchitectureResult(Arm64)
+          )
+        case Right(panic) =>
+          (panic, IncompatibleDevice(panic.msg, panic.context))
+      }
+    }*/
+    appVersionArchitecture
   }
 
-  def purchase(app: String, googleplay: String): GooglePlayResult = {
+  def purchase(app: String, googleplay: String, architecture: Architecture = X86): GooglePlayResult = {
     val lines = ListBuffer[String]()
     try {
-      val ret = s"$googleplay -purchase -p $DEVICE_TYPE -a $app" ! ProcessLogger(
+      val ret = s"$googleplay -acquire -p ${architecture.id} -a $app" ! ProcessLogger(
         _ => (),
-        err => lines.append(err))
+        err => lines.append(err)
+      )
       val panic = lines.filter(_.contains("panic:"))
       if (ret != 0 || panic.nonEmpty) {
         Panic.getPanic(lines, "purchase")
@@ -47,17 +64,23 @@ object AppDownloader extends LogSupport {
     }
   }
 
-  def downloadApk(app: String,
-                  version: String,
-                  folder: String,
-                  googleplay: String): GooglePlayResult = {
+  def downloadApk(
+      app: String,
+      version: String,
+      folder: String,
+      googleplay: String,
+      architecture: Architecture = X86
+  ): GooglePlayResult = {
     val lines: ListBuffer[String] = ListBuffer()
     try {
-      Thread.sleep(Random.nextLong(DELAY_TIME_MAX)) // waiting between 0 and DELAY_TIME_MAX to avoid too many requests
-      val download = s"$googleplay -p $DEVICE_TYPE -a $app -s -v $version"
+      Thread.sleep(
+        Random.nextLong(DELAY_TIME_MAX)
+      ) // waiting between 0 and DELAY_TIME_MAX to avoid too many requests
+      val download = s"$googleplay -p ${architecture.id} -a $app -s -v $version"
       val ret = Process(download, new File(folder)) ! ProcessLogger(
         _ => (),
-        err => lines.append(err))
+        err => lines.append(err)
+      )
       val panic = lines.filter(_.contains("panic:"))
       if (ret != 0) {
         Panic.getPanic(lines, "download")
@@ -78,19 +101,24 @@ object AppDownloader extends LogSupport {
   }
 
   @tailrec
-  def download(app: String,
-               folder: String,
-               config: AndroidConfig,
-               maxRetries: Int = 3): GooglePlayResult = {
+  def download(
+      app: String,
+      folder: String,
+      config: AndroidConfig,
+      maxRetries: Int = 3
+  ): GooglePlayResult = {
     getAppVersion(app, config.googleplay) match {
-      case x: Panic => x
-      case Success => throw new RuntimeException("getAppVersion must not return success object")
-      case Result(version) =>
-        purchase(app, config.googleplay) match {
+      case (Success, _) =>
+        throw new RuntimeException(
+          "getAppVersion must not return success object"
+        )
+      case (StringResult(version), ArchitectureResult(architecture)) =>
+        purchase(app, config.googleplay, architecture) match {
           case x: Panic => x
-          case Result(_) => throw new RuntimeException("purchase does not return a result")
+          case StringResult(_) =>
+            throw new RuntimeException("purchase does not return a result")
           case Success =>
-            downloadApk(app, version, folder, config.googleplay) match {
+            downloadApk(app, version, folder, config.googleplay, architecture) match {
               case x: BadRequest =>
                 if (maxRetries == 0) {
                   x
@@ -100,13 +128,15 @@ object AppDownloader extends LogSupport {
                   download(app, folder, config, maxRetries - 1)
                 }
               case panic: Panic => panic
-              case Result(_) =>
+              case StringResult(_) =>
                 throw new RuntimeException(
-                  "download Apk does not return a result")
+                  "download Apk does not return a result"
+                )
               case Success => Success
             }
 
         }
+      case x: (GooglePlayResult, GooglePlayResult) => x._1
     }
   }
 

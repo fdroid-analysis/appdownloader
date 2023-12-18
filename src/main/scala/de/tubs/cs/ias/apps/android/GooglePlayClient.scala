@@ -9,17 +9,17 @@ import wvlet.log.LogSupport
 
 class GooglePlayClient(googleplay: String) extends LogSupport {
   private val DEVICE_TYPE =
-    Armeabi //this is armeabi-v7a and works on our GALAXY A13
+    X86 //this is X86 and works
   private val playCli = s"$googleplay"
 
   def getAppInfo(
       appId: String,
-      architectureId: Architecture = DEVICE_TYPE
+      architecture: Architecture = DEVICE_TYPE
   ): Either[PlayAppInfo, Panic] = {
     val errors: ListBuffer[String] = ListBuffer()
     try {
       this.writeResult(s"searching for $appId")
-      val appInfo = s"$playCli -a $appId"
+      val appInfo = s"$playCli -a $appId -p ${architecture.id}"
         .!!(ProcessLogger(_ => (), err => errors.append(err)))
         .split('\n')
       val panic = errors.filter(_.contains("panic"))

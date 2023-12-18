@@ -51,41 +51,55 @@ object FDroidJsonProtocol extends DefaultJsonProtocol {
     jsonFormat2(Index)
   }
 
+  implicit val PrivacyLabelFormat: RootJsonFormat[PrivacyLabel] = {
+    jsonFormat1(PrivacyLabel)
+  }
+
 }
 
-case class AppMetadata(name: Map[String, String],
-                       categories: List[String])
+case class AppMetadata(
+    name: Option[Map[String, String]],
+    categories: Option[List[String]]
+)
 case class AppPermission(name: String)
 
-case class UsesSdk(minSdkVersion: Int,
-                   targetSdkVersion: Int,
-                   maxSdkVersion: Option[Int])
-case class AppManifest(versionCode: Int,
-                       versionName: String,
-                       usesSdk: Option[UsesSdk],
-                       usesPermission: Option[List[AppPermission]],
-                       nativecode: Option[List[String]])
+case class UsesSdk(
+    minSdkVersion: Int,
+    targetSdkVersion: Int,
+    maxSdkVersion: Option[Int]
+)
+case class AppManifest(
+    versionCode: Int,
+    versionName: String,
+    usesSdk: Option[UsesSdk],
+    usesPermission: Option[List[AppPermission]],
+    nativecode: Option[List[String]]
+)
 
-case class AppFile(name: String,
-                   sha256: String,
-                   size: Int)
-case class AppVersion(file: AppFile,
-                      manifest: AppManifest,
-                      antiFeatures: Option[Map[String, JsValue]])
+case class AppFile(name: String, sha256: String, size: Int)
+case class AppVersion(
+    file: AppFile,
+    manifest: AppManifest,
+    antiFeatures: Option[Map[String, JsValue]]
+)
 
 case class AppVersions(versions: Map[String, AppVersion])
-case class AppPackage(metadata: AppMetadata,
-                      versions: Map[String, AppVersion])
+case class AppPackage(metadata: AppMetadata, versions: Map[String, AppVersion])
 
-case class AntiFeature(description: Option[Map[String, String]],
-                       name: Map[String, String])
+case class AntiFeature(
+    description: Option[Map[String, String]],
+    name: Map[String, String]
+)
 
 case class Category(name: Map[String, String])
-case class Repo(name: Map[String, String],
-                description: Option[Map[String, String]],
-                address: String,
-                timestamp: Long,
-                antiFeatures: Map[String, AntiFeature],
-                categories: Map[String, Category])
-case class Index(repo: Repo,
-                 packages: Map[String, AppPackage])
+case class Repo(
+    name: Map[String, String],
+    description: Option[Map[String, String]],
+    address: String,
+    timestamp: Long,
+    antiFeatures: Option[Map[String, AntiFeature]],
+    categories: Option[Map[String, Category]]
+)
+case class Index(repo: Repo, packages: Map[String, AppPackage])
+
+case class PrivacyLabel(antiFeatures: List[String])

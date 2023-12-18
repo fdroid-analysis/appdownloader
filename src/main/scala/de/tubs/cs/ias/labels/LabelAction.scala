@@ -1,14 +1,12 @@
 package de.tubs.cs.ias.labels
 
-import de.tubs.cs.ias.OperatingSystem.OperatingSystem
-import de.tubs.cs.ias.labels.ios.{LabelDownloader => iOSLabelDownloader}
+import de.tubs.cs.ias.OperatingSystem.{ANDROID, IOS, OperatingSystem}
 import de.tubs.cs.ias.labels.android.{LabelDownloader => AndroidLabelDownloader}
-import de.tubs.cs.ias.labels.fdroid.{LabelDownloader => FDroidLabelDownloader }
-import wvlet.log.LogSupport
+import de.tubs.cs.ias.labels.ios.{LabelDownloader => iOSLabelDownloader}
 import de.tubs.cs.ias.util.{ActionReport, AsciiProgressBar, FileSystemInteraction => fsi}
-import collection.mutable.{Map => MMap}
-import de.tubs.cs.ias.OperatingSystem
 import java.io.File
+import scala.collection.mutable.{Map => MMap}
+import wvlet.log.LogSupport
 
 object LabelAction extends LogSupport {
 
@@ -24,8 +22,8 @@ object LabelAction extends LogSupport {
           val file = s"$folder/$id.json"
           if (!new File(file).exists()) {
             val content: String = os match {
-              case OperatingSystem.ANDROID => AndroidLabelDownloader.getPrivacyLabel(id)
-              case OperatingSystem.IOS => iOSLabelDownloader.getPrivacyLabel(id)
+              case ANDROID => AndroidLabelDownloader.getPrivacyLabel(id)
+              case IOS => iOSLabelDownloader.getPrivacyLabel(id)
             }
             fsi.writeFile(content, file)
           }

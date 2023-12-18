@@ -49,6 +49,8 @@ object Panic {
 
 }
 
-case class Result(value: String) extends GooglePlayResult
+case class StringResult(value: String) extends GooglePlayResult
+
+case class ArchitectureResult(value: Architecture) extends GooglePlayResult
 
 object Success extends GooglePlayResult

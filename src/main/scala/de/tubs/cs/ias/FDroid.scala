@@ -3,33 +3,18 @@ package de.tubs.cs.ias
 import de.halcony.argparse.{Parser, ParsingResult}
 import de.tubs.cs.ias.Apmi.ensureFolderStructure
 import de.tubs.cs.ias.OperatingSystem.FDROID
-import de.tubs.cs.ias.applist.fdroid.AppListParser.{
-  Device,
-  appCompatibleReason,
-  getAppVersion
-}
-import de.tubs.cs.ias.applist.fdroid.FDroidJsonProtocol.IndexFormat
-import de.tubs.cs.ias.applist.fdroid.{Index, AppListParser => FDroidListParser}
-import de.tubs.cs.ias.applist.{
-  AppListAction,
-  AppListParser,
-  MobileApp,
-  MobileAppList
-}
+import de.tubs.cs.ias.applist.fdroid.AppListParser.{Device, appCompatibleReason, getAppVersion}
+import de.tubs.cs.ias.applist.fdroid.FDroidJsonProtocol.{IndexFormat, _}
+import de.tubs.cs.ias.applist.fdroid.{Index, PrivacyLabel, AppListParser => FDroidListParser}
+import de.tubs.cs.ias.applist.{AppListAction, AppListParser, MobileApp, MobileAppList}
 import de.tubs.cs.ias.apps.AppDownloadAction
 import de.tubs.cs.ias.apps.android.{GooglePlayClient, X86}
 import de.tubs.cs.ias.apps.fdroid.AppDownloader
 import de.tubs.cs.ias.util.ActionReportJsonWriter.actionReportCollection
-import de.tubs.cs.ias.util.{
-  ActionReport,
-  ActionReportCollection,
-  AsciiProgressBar,
-  Config,
-  FileSystemInteraction => fsi
-}
+import de.tubs.cs.ias.util.{ActionReport, ActionReportCollection, AsciiProgressBar, Config, FileSystemInteraction => fsi}
 import scala.collection.mutable.HashMap
 import scala.util.Random
-import spray.json.{JsArray, JsObject, JsString, JsonParser, enrichAny}
+import spray.json.{JsonParser, enrichAny}
 import wvlet.log.LogSupport
 
 object FDroid extends LogSupport {
@@ -182,14 +167,11 @@ object FDroid extends LogSupport {
     )
     info("starting app list acquisition")
     val (appLists, report): (Map[String, MobileAppList], ActionReport) =
-      AppListAction
-        .download(FDROID, conf.fdroid.categories, listsFolder)
+      AppListAction.download(FDROID, conf.fdroid.categories, listsFolder)
     appLists.foreach { case (category, list) =>
       info(s"category $category contains ${list.apps.length}")
     }
-    info(
-      s"overall we have ${appLists.flatMap(_._2.apps).toSet.size} unique apps"
-    )
+    info(s"overall we have ${appLists.flatMap(_._2.apps).toSet.size} unique apps")
     report
   }
 
@@ -203,15 +185,14 @@ object FDroid extends LogSupport {
       pargs.getValue[Boolean]("continue")
     )
     info("starting automated app acquisition")
-    val baseFolder =
-      conf.downloadFolderRoot + conf.fdroid.osFolderName + "/20231012"
+    val baseFolder = conf.downloadFolderRoot + conf.fdroid.osFolderName
     val charts = conf.fdroid.categories.map(_.name)
     // val currentAppChartList = Apmi.getCurrentAppChartState(
     //   charts,
     //   conf.downloadFolderRoot + conf.fdroid.osFolderName + "/"
     // )
     // val allApps = currentAppChartList.flatMap(_._2.apps).toList
-    val allApps = AppListParser.read(s"$baseFolder/lists/All.json").apps
+    val allApps = AppListParser.read(s"$baseFolder/lists/filtered.json").apps
     info(s"we have ${allApps.length} apps to download")
     val realAppsFolder = s"$baseFolder/apps"
     val remainingApps = getRemainingApps(allApps, realAppsFolder)
@@ -275,12 +256,11 @@ object FDroid extends LogSupport {
       appVersion match {
         case Some(appVersion) =>
           val antiFeatures = appVersion.antiFeatures match {
-            case Some(antiFeatures) =>
-              antiFeatures.keySet.map(JsString.apply).toVector
-            case None => Vector()
+            case Some(antiFeatures) => antiFeatures.keySet.toList
+            case None => List()
           }
-          val json = JsObject(("antiFeatures", JsArray(antiFeatures)))
-          fsi.writeFile(json.prettyPrint, s"$outFolder/${app.bundleId}.json")
+          val privacyLabel = PrivacyLabel(antiFeatures)
+          fsi.writeFile(privacyLabel.toJson.prettyPrint, s"$outFolder/${app.bundleId}.json")
         case None =>
           versionNotFound.put(
             app.bundleId,

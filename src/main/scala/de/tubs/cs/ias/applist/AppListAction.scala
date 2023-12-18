@@ -1,25 +1,11 @@
 package de.tubs.cs.ias.applist
 
 import de.tubs.cs.ias.OperatingSystem.{ANDROID, FDROID, IOS, OperatingSystem}
-import de.tubs.cs.ias.applist.ios.AppListDownloader.{
-  download => iosAppListDownload
-}
-import de.tubs.cs.ias.applist.android.AppListDownloader.{
-  download => androidAppListDownload
-}
-import de.tubs.cs.ias.applist.fdroid.AppListDownloader.{
-  download => fdroidAppListDownload
-}
-import AppListParser.appListFormat
-import de.tubs.cs.ias.util.{
-  ActionReport,
-  AppCategory,
-  AsciiProgressBar,
-  FileSystemInteraction => fsi
-}
-import spray.json.JsonParser
+import de.tubs.cs.ias.applist.android.AppListDownloader.{download => androidAppListDownload}
+import de.tubs.cs.ias.applist.fdroid.AppListDownloader.{download => fdroidAppListDownload}
+import de.tubs.cs.ias.applist.ios.AppListDownloader.{download => iosAppListDownload}
+import de.tubs.cs.ias.util.{ActionReport, AppCategory, AsciiProgressBar}
 import wvlet.log.LogSupport
-import java.io.File
 
 object AppListAction extends LogSupport {
 
